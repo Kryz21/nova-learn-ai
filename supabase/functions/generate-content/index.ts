@@ -125,56 +125,86 @@ async function fetchYoutubeTranscript(url: string): Promise<string> {
 }
 
 async function generateWithClaude(sourceText: string) {
-  const systemPrompt = `You are Novalearn AI's content engine. Given source material, produce a JSON study set.
-Return ONLY valid JSON, no markdown fences, no commentary, matching exactly this shape:
+  const prompt = `
+You are Novalearn AI's content engine.
+
+Return ONLY valid JSON.
+
 {
   "notes": {
-    "sections": [ { "heading": string, "points": string[] } ],
-    "keyTerms": [ { "term": string, "definition": string } ]
+    "sections": [
+      {
+        "heading": "string",
+        "points": ["string"]
+      }
+    ],
+    "keyTerms": [
+      {
+        "term": "string",
+        "definition": "string"
+      }
+    ]
   },
   "quiz": {
     "questions": [
-      { "question": string, "options": string[4], "correctIndex": number, "explanation": string }
+      {
+        "question": "string",
+        "options": ["a","b","c","d"],
+        "correctIndex": 0,
+        "explanation": "string"
+      }
     ]
   },
   "flashcards": {
-    "cards": [ { "front": string, "back": string } ]
+    "cards": [
+      {
+        "front": "string",
+        "back": "string"
+      }
+    ]
   }
 }
-Rules:
-- 3 to 6 note sections, 3-6 bullet points each, drawn only from the source.
-- 5 to 8 key terms.
-- 6 to 10 quiz questions, exactly 4 options each, correctIndex is 0-based.
-- 10 to 16 flashcards covering the most testable facts/concepts.
-- Be accurate to the source. Do not invent facts not supported by it.`
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: `Source material:\n\n${sourceText}`,
-        },
-      ],
-    }),
-  })
+Source:
 
-  if (!res.ok) {
-    const errText = await res.text()
-    throw new Error(`Claude API error: ${errText}`)
+${sourceText}
+`;
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              {
+                text: prompt,
+              },
+            ],
+          },
+        ],
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const txt = await response.text();
+    throw new Error(`Gemini API error: ${txt}`);
   }
 
-  const data = await res.json()
-  const raw = data.content?.find((b: any) => b.type === 'text')?.text ?? '{}'
-  const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/```$/, '')
-  return JSON.parse(cleaned)
+  const data = await response.json();
+
+  const raw =
+    data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+
+  const cleaned = raw
+    .replace(/```json/g, "")
+    .replace(/```/g, "")
+    .trim();
+
+  return JSON.parse(cleaned);
 }
