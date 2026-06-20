@@ -166,7 +166,7 @@ export default function NewResource() {
           {busy ? (
             <>
               <Loader2 className="animate-spin" size={16} />
-              {status === 'extracting' ? 'Reading source…' : 'Generating with Claude…'}
+              {status === 'extracting' ? 'Reading source…' : 'Generating with Gemini…'}
             </>
           ) : (
             <>
