@@ -1,17 +1,12 @@
 // supabase/functions/generate-content/index.ts
 //
 // Deploy with: supabase functions deploy generate-content
-// Requires secrets set with:
+// Requires secret:
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-//
-// Receives a resource source (raw text, or a YouTube URL), gets a transcript
-// if needed, asks Claude for structured notes/quiz/flashcards, and writes
-// the result into the resources table using the service role (bypasses RLS,
-// but we manually scope every query to the authenticated user's id).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
-const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
+const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -54,16 +49,15 @@ Deno.serve(async (req) => {
       return json({ error: 'Not enough source text to work with.' }, 400)
     }
 
-    // Cap input size to keep latency/cost sane
     const trimmed = sourceText.slice(0, 60000)
-
     const generated = await generateWithClaude(trimmed)
 
+    // Use explicit column list to avoid schema cache issues
     const { data: inserted, error: insertErr } = await supabase
       .from('resources')
       .insert({
         user_id: userId,
-        title,
+        title: title,
         source_type: sourceType,
         source_meta: youtubeUrl ? { youtubeUrl } : {},
         status: 'ready',
@@ -74,12 +68,15 @@ Deno.serve(async (req) => {
       .select('id')
       .single()
 
-    if (insertErr) return json({ error: insertErr.message }, 500)
+    if (insertErr) {
+      console.error('Insert error:', JSON.stringify(insertErr))
+      return json({ error: `DB insert failed: ${insertErr.message}` }, 500)
+    }
 
     return json({ resourceId: inserted.id })
   } catch (err) {
-    console.error(err)
-    return json({ error: err.message ?? 'Internal error' }, 500)
+    console.error('Unhandled error:', err)
+    return json({ error: err?.message ?? 'Internal error' }, 500)
   }
 })
 
@@ -97,7 +94,6 @@ async function fetchYoutubeTranscript(url: string): Promise<string> {
   const videoId = match?.[1]
   if (!videoId) throw new Error('Invalid YouTube URL')
 
-  // Pull the watch page to find the caption track URL (unofficial, best-effort).
   const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
   })
@@ -125,31 +121,25 @@ async function fetchYoutubeTranscript(url: string): Promise<string> {
 }
 
 async function generateWithClaude(sourceText: string) {
-  const prompt = `
-You are Novalearn AI's content engine.
+  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY secret is not set')
 
-Return ONLY valid JSON.
+  const prompt = `You are Novalearn AI's content engine. Analyze the source material below and return ONLY valid JSON with no markdown fences, no explanation, nothing else.
 
+The JSON must match this exact shape:
 {
   "notes": {
     "sections": [
-      {
-        "heading": "string",
-        "points": ["string"]
-      }
+      { "heading": "string", "points": ["string", "string"] }
     ],
     "keyTerms": [
-      {
-        "term": "string",
-        "definition": "string"
-      }
+      { "term": "string", "definition": "string" }
     ]
   },
   "quiz": {
     "questions": [
       {
         "question": "string",
-        "options": ["a","b","c","d"],
+        "options": ["option A", "option B", "option C", "option D"],
         "correctIndex": 0,
         "explanation": "string"
       }
@@ -157,54 +147,48 @@ Return ONLY valid JSON.
   },
   "flashcards": {
     "cards": [
-      {
-        "front": "string",
-        "back": "string"
-      }
+      { "front": "string", "back": "string" }
     ]
   }
 }
 
-Source:
+Guidelines:
+- notes: 4-8 sections, each with 3-6 bullet points; 5-10 key terms
+- quiz: 8-12 multiple choice questions covering the main ideas
+- flashcards: 10-15 cards focused on key facts, definitions, and concepts
 
-${sourceText}
-`;
+Source material:
+${sourceText}`
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              {
-                text: prompt,
-              },
-            ],
-          },
-        ],
-      }),
-    }
-  );
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
 
-  if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Gemini API error: ${txt}`);
+  if (!res.ok) {
+    const txt = await res.text()
+    throw new Error(`Claude API error ${res.status}: ${txt}`)
   }
 
-  const data = await response.json();
+  const data = await res.json()
+  const raw = data.content?.[0]?.text ?? '{}'
 
-  const raw =
-    data.candidates?.[0]?.content?.parts?.[0]?.text ?? "{}";
+  // Strip any accidental markdown fences
+  const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
-  const cleaned = raw
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  return JSON.parse(cleaned);
+  try {
+    return JSON.parse(cleaned)
+  } catch (e) {
+    console.error('JSON parse failed. Raw response:', raw)
+    throw new Error('Claude returned invalid JSON. Check function logs.')
+  }
 }
