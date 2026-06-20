@@ -13,8 +13,8 @@ const STEPS = [
   },
   {
     n: '02',
-    title: 'Claude reads & structures',
-    body: 'The content is parsed and sent to Claude, which extracts the concepts that actually matter.',
+    title: 'Gemini reads & structures',
+    body: 'The content is parsed and sent to Gemini, which extracts the concepts that actually matter.',
     Icon: FileText,
   },
   {
@@ -147,7 +147,7 @@ export default function Landing() {
       </section>
 
       <footer className="border-t border-line/50 py-8 text-center text-xs font-mono text-muted">
-        Novalearn AI — built with Claude
+        Novalearn AI — Built with Gemini
       </footer>
     </div>
   )
