@@ -2,11 +2,11 @@
 //
 // Deploy with: supabase functions deploy generate-content
 // Requires secret:
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+//   supabase secrets set GEMINI_API_KEY=your-key-here
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -50,9 +50,8 @@ Deno.serve(async (req) => {
     }
 
     const trimmed = sourceText.slice(0, 60000)
-    const generated = await generateWithClaude(trimmed)
+    const generated = await generateWithGemini(trimmed)
 
-    // Use explicit column list to avoid schema cache issues
     const { data: inserted, error: insertErr } = await supabase
       .from('resources')
       .insert({
@@ -120,10 +119,10 @@ async function fetchYoutubeTranscript(url: string): Promise<string> {
   return text.trim()
 }
 
-async function generateWithClaude(sourceText: string) {
-  if (!ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY secret is not set')
+async function generateWithGemini(sourceText: string) {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY secret is not set. Run: supabase secrets set GEMINI_API_KEY=your-key')
 
-  const prompt = `You are Novalearn AI's content engine. Analyze the source material below and return ONLY valid JSON with no markdown fences, no explanation, nothing else.
+  const prompt = `You are a study content engine. Analyze the source material below and return ONLY valid JSON with no markdown fences, no explanation, no extra text — just raw JSON.
 
 The JSON must match this exact shape:
 {
@@ -156,39 +155,40 @@ Guidelines:
 - notes: 4-8 sections, each with 3-6 bullet points; 5-10 key terms
 - quiz: 8-12 multiple choice questions covering the main ideas
 - flashcards: 10-15 cards focused on key facts, definitions, and concepts
+- correctIndex is 0-based (0 = first option, 1 = second, etc.)
 
 Source material:
 ${sourceText}`
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          responseMimeType: 'application/json',
+        },
+      }),
+    }
+  )
 
   if (!res.ok) {
     const txt = await res.text()
-    throw new Error(`Claude API error ${res.status}: ${txt}`)
+    throw new Error(`Gemini API error ${res.status}: ${txt}`)
   }
 
   const data = await res.json()
-  const raw = data.content?.[0]?.text ?? '{}'
+  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}'
 
-  // Strip any accidental markdown fences
   const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim()
 
   try {
     return JSON.parse(cleaned)
   } catch (e) {
     console.error('JSON parse failed. Raw response:', raw)
-    throw new Error('Claude returned invalid JSON. Check function logs.')
+    throw new Error('Gemini returned invalid JSON. Check function logs for the raw response.')
   }
 }
