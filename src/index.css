@@ -11,18 +11,11 @@
   }
 
   body {
-    background: radial-gradient(circle at top, #1b1f3a, #0b0d17);
-    color: white;
-    overflow-x: hidden;
+    @apply bg-void text-ink font-body antialiased;
   }
-
-  ::selection {
-    background: rgba(0, 240, 255, 0.25);
-    color: #fff;
-  }
-
+  ::selection { background: rgba(0,240,255,0.3); color: #fff; }
   :focus-visible {
-    outline: 2px solid #00F0FF;
+    outline: 2px solid rgba(124, 58, 237, 0.7);
     outline-offset: 2px;
   }
 
@@ -40,88 +33,34 @@
    COMPONENT SYSTEM (TAILWIND)
 ========================= */
 @layer components {
+  .text-glow-cyan { text-shadow: 0 0 18px rgba(0,240,255,0.55); }
+  .text-glow-magenta { text-shadow: 0 0 18px rgba(255,46,196,0.55); }
 
-  /* ✨ Glow text */
-  .text-glow-cyan {
-    text-shadow: 0 0 18px rgba(0, 240, 255, 0.55);
-  }
-
-  .text-glow-magenta {
-    text-shadow: 0 0 18px rgba(255, 46, 196, 0.55);
-  }
-
-  /* 🧊 PRIMARY BUTTON (glass + neon) */
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium
-    bg-cyan text-black shadow-neon-cyan transition-all duration-200
-    hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(0,240,255,0.6),0_0_90px_rgba(0,240,255,0.15)]
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-display font-medium
+    bg-cyan text-void shadow-neon-cyan transition-all duration-200
+    hover:shadow-[0_0_30px_rgba(0,240,255,0.6),0_0_90px_rgba(0,240,255,0.2)] hover:-translate-y-0.5
     active:translate-y-0;
   }
-
-  /* 🌫️ SECONDARY BUTTON */
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium
-    border border-white/15 text-white/90 transition-all duration-200
-    hover:border-pink-400/40 hover:text-white hover:shadow-[0_0_25px_rgba(255,46,196,0.25)];
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-display font-medium
+    border border-line text-ink/90 transition-all duration-200
+    hover:border-magenta/60 hover:text-white hover:shadow-neon-magenta;
   }
-
-  /* 🧊 GLASS PANEL (MAIN UI BLOCK) */
   .panel {
-    @apply bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl;
+    @apply bg-panel/80 border border-line rounded-xl backdrop-blur-sm;
   }
-
-  /* ✍️ INPUT FIELD */
   .input-field {
-    @apply w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/40
-    focus:border-cyan-400/60 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,240,255,0.12)]
-    transition-all;
+    @apply w-full bg-surface border border-line rounded-lg px-4 py-3 text-ink placeholder:text-muted
+    focus:border-cyan/60 focus:outline-none focus:shadow-[0_0_0_3px_rgba(0,240,255,0.12)] transition-all;
   }
-
-  /* 🏷️ SMALL LABEL */
   .eyebrow {
-    @apply font-mono text-xs tracking-[0.25em] uppercase text-cyan-300/80;
-  }
-
-  /* 🧊 GLASS CARD */
-  .glass {
-    @apply bg-white/5 border border-white/10 rounded-2xl backdrop-blur-xl;
-  }
-
-  .glass-hover {
-    @apply transition-all duration-300;
-  }
-
-  .glass-hover:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.5);
+    @apply font-mono text-xs tracking-[0.25em] uppercase text-cyan/80;
   }
 }
 
-/* =========================
-   SCROLLBAR (SLEEK UI)
-========================= */
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #05050A;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1E1E2E;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #00B8C7;
-}
-
-/* =========================
-   LEGACY GLASS VARIABLES
-========================= */
-:root {
-  --radius: 16px;
-}
-
-/* (kept minimal on purpose — Tailwind now handles most styling) */
+/* custom scrollbar */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: #05050A; }
+::-webkit-scrollbar-thumb { background: #1E1E2E; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #00B8C7; }
