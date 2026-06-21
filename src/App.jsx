@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import DarkVeil from './component/DarkVeil'
+import DarkVeil from './components/DarkVeil'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import ConfigBanner from './components/ConfigBanner'
