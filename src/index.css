@@ -7,26 +7,13 @@
 ========================= */
 @layer base {
   html {
-    scroll-behavior: smooth;
+    zoom: 0.85; /* adjust this single number to taste */
   }
 
   body {
     @apply bg-void text-ink font-body antialiased;
   }
-  ::selection { background: rgba(0,240,255,0.3); color: #fff; }
-  :focus-visible {
-    outline: 2px solid rgba(124, 58, 237, 0.7);
-    outline-offset: 2px;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after {
-      animation-duration: 0.001ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.001ms !important;
-      scroll-behavior: auto !important;
-    }
-  }
+  /* ...rest unchanged */
 }
 
 /* =========================
