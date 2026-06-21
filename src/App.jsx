@@ -1,5 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
-import StarField from './components/StarField'
+import DarkVeil from './component/DarkVeil'
 import Navbar from './components/Navbar'
 import ProtectedRoute from './components/ProtectedRoute'
 import ConfigBanner from './components/ConfigBanner'
@@ -13,7 +13,17 @@ import ResourceDetail from './pages/ResourceDetail'
 export default function App() {
   return (
     <div className="min-h-screen relative">
-      <StarField />
+      <div style={{ position: 'fixed', inset: 0, zIndex: -1, pointerEvents: 'none' }}>
+        <DarkVeil
+          hueShift={0}
+          noiseIntensity={0}
+          scanlineIntensity={0}
+          speed={0.5}
+          scanlineFrequency={0}
+          warpAmount={0}
+          resolutionScale={1}
+        />
+      </div>
       <ConfigBanner />
       <Navbar />
       <main>
