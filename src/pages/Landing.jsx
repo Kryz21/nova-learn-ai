@@ -65,7 +65,7 @@ export default function Landing() {
               <Link to="/signup" className="btn-primary">
                 Start learning free <ArrowRight size={16} />
               </Link>
-              <a href="#how" className="btn-ghost">
+              <a href="#features" className="btn-ghost">
                 See how it works
               </a>
             </div>
@@ -89,7 +89,7 @@ export default function Landing() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section id="how" className="relative py-32 border-t border-line/50">
+      <section id="features" className="relative py-32 border-t border-line/50">
         <div className="max-w-6xl mx-auto px-6">
           <div className="max-w-xl">
             <span className="eyebrow">The pipeline</span>
