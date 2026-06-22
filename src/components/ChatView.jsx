@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader2, Bot, User } from 'lucide-react'
+import { supabase } from '../lib/supabaseClient'
 
 export default function ChatView({ resource }) {
   const [messages, setMessages] = useState([
@@ -12,16 +13,15 @@ export default function ChatView({ resource }) {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef(null)
-  const inputRef = useRef(null)
+  const inputRef  = useRef(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Build system prompt from the resource's generated content
   function buildSystemPrompt() {
     const notes = resource.notes_json
-    const quiz = resource.quiz_json
+    const quiz  = resource.quiz_json
     const cards = resource.flashcards_json
 
     const notesSummary = notes?.sections
@@ -33,7 +33,7 @@ export default function ChatView({ resource }) {
       .join('\n') ?? ''
 
     const quizSummary = quiz?.questions
-      ?.map((q, i) => `Q${i + 1}: ${q.question}\nAnswer: ${q.options[q.correctIndex]}\n${q.explanation}`)
+      ?.map((q, i) => `Q${i+1}: ${q.question}\nAnswer: ${q.options[q.correctIndex]}\n${q.explanation}`)
       .join('\n\n') ?? ''
 
     const flashSummary = cards?.cards
@@ -73,56 +73,46 @@ Rules:
     setInput('')
     setLoading(true)
 
-    // Add empty assistant message for streaming into
+    // Add empty placeholder
     setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          system: buildSystemPrompt(),
-          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
-          stream: true,
-        }),
-      })
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData.session?.access_token
 
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let full = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n').filter(l => l.startsWith('data: '))
-
-        for (const line of lines) {
-          const data = line.slice(6)
-          if (data === '[DONE]') break
-          try {
-            const parsed = JSON.parse(data)
-            const delta = parsed.delta?.text ?? ''
-            full += delta
-            setMessages(prev => {
-              const updated = [...prev]
-              updated[updated.length - 1] = { role: 'assistant', content: full }
-              return updated
-            })
-          } catch {
-            // skip malformed chunks
-          }
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            system: buildSystemPrompt(),
+            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+          }),
         }
+      )
+
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.error || 'Request failed')
       }
+
+      const data = await response.json()
+
+      setMessages(prev => {
+        const updated = [...prev]
+        updated[updated.length - 1] = { role: 'assistant', content: data.text }
+        return updated
+      })
     } catch (err) {
       setMessages(prev => {
         const updated = [...prev]
         updated[updated.length - 1] = {
           role: 'assistant',
-          content: 'Something went wrong. Try again.',
+          content: `Error: ${err.message}`,
         }
         return updated
       })
@@ -140,47 +130,45 @@ Rules:
   }
 
   return (
-    <div className="flex flex-col h-[520px]">
-      {/* Message list */}
+    <div className="flex flex-col h-full">
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 pr-1 pb-2">
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
             <motion.div
               key={i}
-              initial={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
+              transition={{ duration: 0.18 }}
+              className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
             >
-              {/* Avatar */}
               <div
-                className={`w-7 h-7 rounded-lg flex-shrink-0 flex items-center justify-center mt-0.5 ${
+                className={`w-6 h-6 rounded-lg flex-shrink-0 flex items-center justify-center mt-0.5 ${
                   msg.role === 'assistant'
-                    ? 'bg-cyan/15 border border-cyan/30'
+                    ? 'bg-violet/15 border border-violet/35'
                     : 'bg-magenta/15 border border-magenta/30'
                 }`}
               >
                 {msg.role === 'assistant'
-                  ? <Bot size={14} className="text-cyan" />
-                  : <User size={14} className="text-magenta" />
+                  ? <Bot  size={12} className="text-violet" />
+                  : <User size={12} className="text-magenta" />
                 }
               </div>
 
-              {/* Bubble */}
               <div
-                className={`max-w-[82%] px-4 py-3 rounded-xl text-sm leading-relaxed ${
+                className={`max-w-[85%] px-3.5 py-2.5 rounded-xl text-sm leading-relaxed ${
                   msg.role === 'assistant'
-                    ? 'bg-panel border border-line text-ink/90'
-                    : 'bg-magenta/10 border border-magenta/25 text-ink/90'
+                    ? 'bg-[#13131f] border border-line text-ink/90'
+                    : 'bg-magenta/10 border border-magenta/20 text-ink/90'
                 }`}
               >
                 {msg.content
                   ? <SimpleMarkdown text={msg.content} />
-                  : <span className="inline-flex gap-1">
+                  : <span className="inline-flex gap-1 py-0.5">
                       {[0,1,2].map(d => (
                         <span
                           key={d}
-                          className="w-1.5 h-1.5 rounded-full bg-cyan/60 animate-pulse"
+                          className="w-1.5 h-1.5 rounded-full bg-violet/60 animate-pulse"
                           style={{ animationDelay: `${d * 0.15}s` }}
                         />
                       ))}
@@ -194,7 +182,7 @@ Rules:
       </div>
 
       {/* Input */}
-      <div className="mt-4 flex gap-2">
+      <div className="mt-3 flex gap-2 flex-shrink-0">
         <textarea
           ref={inputRef}
           rows={1}
@@ -202,22 +190,27 @@ Rules:
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKey}
           placeholder="Ask anything about this material…"
-          className="input-field flex-1 resize-none min-h-[44px] max-h-[120px] py-2.5 text-sm"
-          style={{ fieldSizing: 'content' }}
+          className="input-field flex-1 resize-none text-sm py-2.5"
+          style={{ minHeight: '42px', maxHeight: '100px' }}
         />
         <button
           onClick={send}
           disabled={!input.trim() || loading}
-          className="btn-primary !px-4 !py-2.5 disabled:opacity-40"
+          className="flex-shrink-0 w-10 h-10 rounded-lg bg-violet/20 border border-violet/40
+            text-violet flex items-center justify-center
+            hover:bg-violet/30 hover:border-violet/60 transition-colors
+            disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+          {loading
+            ? <Loader2 size={15} className="animate-spin" />
+            : <Send size={15} />
+          }
         </button>
       </div>
     </div>
   )
 }
 
-// Minimal markdown renderer (bold, bullets, line breaks)
 function SimpleMarkdown({ text }) {
   const lines = text.split('\n')
   return (
@@ -225,11 +218,11 @@ function SimpleMarkdown({ text }) {
       {lines.map((line, i) => {
         if (!line.trim()) return <br key={i} />
         const isBullet = /^[-*]\s/.test(line)
-        const content = renderInline(isBullet ? line.slice(2) : line)
+        const content  = renderInline(isBullet ? line.slice(2) : line)
         if (isBullet) {
           return (
             <div key={i} className="flex gap-1.5">
-              <span className="text-cyan mt-0.5 flex-shrink-0">▸</span>
+              <span className="text-violet mt-0.5 flex-shrink-0">▸</span>
               <span>{content}</span>
             </div>
           )
