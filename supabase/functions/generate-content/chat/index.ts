@@ -4,9 +4,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4'
 
-const GEMINI_API_KEY          = Deno.env.get('GEMINI_API_KEY')
-const SUPABASE_URL            = Deno.env.get('SUPABASE_URL')
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+const GEMINI_API_KEY          = Deno.env.get('AQ.Ab8RN6IfqfLscUfiPQQt2dQ_NreFbMvNTrbF7ii8JkTE-t_goA')
+const SUPABASE_URL            = Deno.env.get('https://lqeqwqqvoayfkzfpxiik.supabase.co')
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxZXF3cXF2b2F5Zmt6ZnB4aWlrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MTg4OTgzNSwiZXhwIjoyMDk3NDY1ODM1fQ.NFM2bDMQl2cGuQqFyn6gSQaQ-OdLbRt5ULD0cjEYF64')
 
 const corsHeaders = {
   'Access-Control-Allow-Origin':  '*',
