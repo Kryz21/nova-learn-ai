@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { FileText, ListChecks, Layers } from 'lucide-react'
+import { FileText, ListChecks, Layers, MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import NotesView from '../components/NotesView'
 import QuizPlayer from '../components/QuizPlayer'
 import FlashcardViewer from '../components/FlashcardViewer'
+import ChatView from '../components/ChatView'
 
 const TABS = [
-  { id: 'notes', label: 'Notes', Icon: FileText },
-  { id: 'quiz', label: 'Quiz', Icon: ListChecks },
-  { id: 'flashcards', label: 'Flashcards', Icon: Layers },
+  { id: 'notes',      label: 'Notes',      Icon: FileText },
+  { id: 'quiz',       label: 'Quiz',        Icon: ListChecks },
+  { id: 'flashcards', label: 'Flashcards',  Icon: Layers },
+  { id: 'chat',       label: 'Ask AI',      Icon: MessageCircle },
 ]
 
 export default function ResourceDetail() {
@@ -32,9 +34,7 @@ export default function ResourceDetail() {
       }
     }
     load()
-    return () => {
-      active = false
-    }
+    return () => { active = false }
   }, [id])
 
   if (loading) {
@@ -54,13 +54,17 @@ export default function ResourceDetail() {
       <span className="eyebrow">Study set</span>
       <h1 className="font-display text-3xl font-semibold mt-2 mb-8">{resource.title}</h1>
 
-      <div className="flex gap-2 mb-8">
+      <div className="flex gap-2 mb-8 flex-wrap">
         {TABS.map(({ id: tid, label, Icon }) => (
           <button
             key={tid}
             onClick={() => setTab(tid)}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-all ${
-              tab === tid ? 'border-cyan/60 text-cyan shadow-neon-cyan bg-cyan/5' : 'border-line text-muted hover:text-ink'
+              tab === tid
+                ? tid === 'chat'
+                  ? 'border-violet/60 text-violet shadow-[0_0_20px_rgba(124,58,237,0.35)] bg-violet/5'
+                  : 'border-cyan/60 text-cyan shadow-neon-cyan bg-cyan/5'
+                : 'border-line text-muted hover:text-ink'
             }`}
           >
             <Icon size={16} /> {label}
@@ -68,9 +72,14 @@ export default function ResourceDetail() {
         ))}
       </div>
 
-      {tab === 'notes' && <NotesView notes={resource.notes_json} />}
-      {tab === 'quiz' && <QuizPlayer questions={resource.quiz_json?.questions} />}
+      {tab === 'notes'      && <NotesView notes={resource.notes_json} />}
+      {tab === 'quiz'       && <QuizPlayer questions={resource.quiz_json?.questions} />}
       {tab === 'flashcards' && <FlashcardViewer cards={resource.flashcards_json?.cards} />}
+      {tab === 'chat'       && (
+        <div className="panel p-6">
+          <ChatView resource={resource} />
+        </div>
+      )}
     </div>
   )
 }
